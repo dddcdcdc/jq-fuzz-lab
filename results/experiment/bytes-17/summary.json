@@ -1,0 +1,21 @@
+{
+  "version": "jq 1.8.0",
+  "mode": "jq-script",
+  "strategy": "bytes",
+  "seed": 17,
+  "executions": 100,
+  "outcomes": {
+    "ok": 28,
+    "rejected": 71,
+    "crash": 1
+  },
+  "coverage_edges": null,
+  "elapsed_seconds": 4.81,
+  "bugs": [
+    {
+      "signature": "assert: end > loc.start, file src/locfile.c, line 82",
+      "found_at": 17,
+      "id": 1
+    }
+  ]
+}

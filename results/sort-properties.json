@@ -1,0 +1,7 @@
+{
+  "version": "jq 1.8.0 / sort",
+  "seed": 19,
+  "cases": 54,
+  "passed": 54,
+  "violations": []
+}

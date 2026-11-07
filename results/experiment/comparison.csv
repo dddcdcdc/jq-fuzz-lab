@@ -1,0 +1,7 @@
+strategy,seed,budget,ok,rejected,crash_runs,timeout,exit_error,unique_confirmed,first_case,coverage_edges
+bytes,7,100,31,68,1,0,0,1,23,
+structured,7,100,28,45,27,0,0,1,6,
+bytes,17,100,28,71,1,0,0,1,17,
+structured,17,100,28,50,22,0,0,1,12,
+bytes,37,100,25,71,4,0,0,1,23,
+structured,37,100,25,53,22,0,0,1,8,

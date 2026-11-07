@@ -1,0 +1,9 @@
+{
+  "kind": "rejected",
+  "code": 3,
+  "stdout": "",
+  "stderr": "jq: error: syntax error, unexpected end of file at <top-level>, line 1, column 23:\r\n    def bug: sub(\"a\"; \"b\";\r\n                          ^\r\njq: 1 compile error\r\n",
+  "signature": "",
+  "coverage": [],
+  "elapsed_ms": 31
+}

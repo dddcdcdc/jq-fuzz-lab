@@ -1,0 +1,156 @@
+"""Command-line runner, fuzzer, minimizer and replay tool."""
+import argparse
+from collections import Counter
+from dataclasses import asdict
+import json
+from pathlib import Path
+import random
+import sys
+import time
+
+from mutate import cases
+from runner import Target
+
+
+def write_json(path, data):
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def result_json(result):
+    return {**asdict(result), "coverage": sorted(result.coverage)}
+
+
+def minimize(target, data, signature, limit=100):
+    size = 2
+    attempts = 0
+    while len(data) and attempts < limit:
+        width = (len(data) + size - 1) // size
+        for start in range(0, len(data), width):
+            candidate = data[:start] + data[start + width:]
+            attempts += 1
+            result = target.run(candidate)
+            if result.kind == "crash" and result.signature == signature:
+                data, size = candidate, max(2, size - 1)
+                break
+            if attempts >= limit:
+                return data, attempts
+        else:
+            if size >= len(data):
+                break
+            size = min(len(data), size * 2)
+    return data, attempts
+
+
+def report(target, out, number, data, result, iteration):
+    out.mkdir()
+    original = out / ("original" + target.extension)
+    original.write_bytes(data)
+    reduced, attempts = minimize(target, data, result.signature)
+    minimized = out / ("minimized" + target.extension)
+    minimized.write_bytes(reduced)
+    confirmation = target.run(reduced)
+    if confirmation.kind != "crash" or confirmation.signature != result.signature:
+        reduced = data
+        minimized.write_bytes(data)
+        confirmation = target.run(data)
+    metadata = {
+        "id": number, "target_version": target.version, "found_at": iteration,
+        "original_bytes": len(data), "minimized_bytes": len(reduced),
+        "minimizer_executions": attempts, "original": result_json(result),
+        "confirmation": result_json(confirmation),
+        "input_file": minimized.name,
+        "replay": "python code/fuzz.py replay <target-dir> <path-to-minimized-input>",
+    }
+    write_json(out / "report.json", metadata)
+    (out / "stderr.txt").write_text(result.stderr, encoding="utf-8", newline="")
+    print(f"  [shrink] {len(data)} -> {len(reduced)} bytes ({attempts} trials)", flush=True)
+    return metadata
+
+
+def fuzz(args, target):
+    seeds = sorted(path for path in target.seeds.iterdir() if path.is_file())
+    pool = [path.read_bytes() for path in seeds]
+    if not pool:
+        raise ValueError("seed corpus is empty")
+    control = target.run(pool[0])
+    if control.kind != "ok":
+        raise ValueError(f"the first seed must succeed: {control.kind} {control.stderr.strip()}")
+    if args.strategy == "guided" and not control.coverage:
+        raise ValueError("guided mode requires an instrumented target with edge coverage")
+    if args.budget < len(pool):
+        raise ValueError("budget must cover the initial corpus")
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=False)
+    started = time.monotonic()
+    coverage, findings = set(), {}
+    results = Counter()
+    print(f"[run] {target.version} | {target.mode} | {args.strategy} | "
+          f"seed={args.seed} | budget={args.budget}", flush=True)
+    generated = cases(pool, target.mode, args.strategy, random.Random(args.seed))
+    for iteration in range(1, args.budget + 1):
+        data = next(generated)
+        result = target.run(data)
+        if result.kind == "launch_error":
+            raise ValueError(result.stderr)
+        results[result.kind] += 1
+        new_edges = result.coverage - coverage
+        coverage.update(result.coverage)
+        if args.strategy == "guided" and new_edges and result.kind in {"ok", "rejected"}:
+            if data not in pool:
+                pool.append(data)
+        if result.kind == "crash" and result.signature not in findings:
+            confirmation = target.run(data)
+            if confirmation.kind == "crash" and confirmation.signature == result.signature:
+                number = len(findings) + 1
+                print(f"[crash #{number}] case {iteration}: {result.signature}", flush=True)
+                findings[result.signature] = report(target, out / f"bug-{number:03}", number,
+                                                    data, result, iteration)
+        if iteration % 25 == 0 or iteration == args.budget:
+            print(f"[progress] {iteration}/{args.budget} | crash runs={results['crash']} | "
+                  f"unique={len(findings)} | edges={len(coverage)}", flush=True)
+    summary = {
+        "version": target.version, "mode": target.mode, "strategy": args.strategy,
+        "seed": args.seed, "executions": args.budget, "outcomes": dict(results),
+        "coverage_edges": len(coverage) if coverage else None,
+        "elapsed_seconds": round(time.monotonic() - started, 2),
+        "bugs": [{"signature": signature, "found_at": info["found_at"], "id": info["id"]}
+                 for signature, info in findings.items()],
+    }
+    write_json(out / "summary.json", summary)
+    print(f"[done] {len(findings)} reproducible bug(s); summary: {out / 'summary.json'}", flush=True)
+    return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="action", required=True)
+    run = commands.add_parser("run", help="fuzz a directory with target.json")
+    run.add_argument("target")
+    run.add_argument("--strategy", choices=["bytes", "structured", "guided"], default="structured")
+    run.add_argument("--seed", type=int, default=7)
+    run.add_argument("--budget", type=int, default=150)
+    run.add_argument("--out", required=True)
+    replay = commands.add_parser("replay", help="run one saved input")
+    replay.add_argument("target")
+    replay.add_argument("input")
+    replay.add_argument("--out", help="write a JSON record")
+    args = parser.parse_args()
+    try:
+        target = Target(args.target)
+        if args.action == "run":
+            return fuzz(args, target)
+        result = target.run(Path(args.input).read_bytes())
+        print(f"[replay] {target.version} | {result.kind} | exit={result.code}")
+        if result.stdout.strip():
+            print(result.stdout.rstrip())
+        if result.stderr.strip():
+            print(result.stderr.rstrip())
+        if args.out:
+            write_json(Path(args.out), result_json(result))
+        return 0 if result.kind in {"ok", "rejected", "crash"} else 2
+    except (OSError, ValueError, KeyError) as exc:
+        parser.exit(2, f"error: {exc}\n")
+
+
+if __name__ == "__main__":
+    sys.exit(main())

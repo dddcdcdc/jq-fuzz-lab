@@ -1,0 +1,14 @@
+{
+  "version": "jq 1.8.0 / sort",
+  "mode": "json",
+  "strategy": "structured",
+  "seed": 19,
+  "executions": 75,
+  "outcomes": {
+    "ok": 54,
+    "rejected": 21
+  },
+  "coverage_edges": null,
+  "elapsed_seconds": 2.03,
+  "bugs": []
+}

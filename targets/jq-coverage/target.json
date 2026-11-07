@@ -1,0 +1,16 @@
+{
+  "version": "jq 1.8.0 / LLVM instrumentation",
+  "command": [
+    "{target}/jq",
+    "--null-input",
+    "--from-file",
+    "{input}"
+  ],
+  "mode": "jq-script",
+  "seeds": "../jq-1.8.0/seeds",
+  "timeout_seconds": 5,
+  "reject_exit_codes": [
+    3,
+    5
+  ]
+}

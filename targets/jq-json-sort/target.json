@@ -1,0 +1,17 @@
+{
+  "version": "jq 1.8.0 / sort",
+  "command": [
+    "{target}/../jq-1.8.0/jq",
+    "--compact-output",
+    "sort"
+  ],
+  "mode": "json",
+  "stdin": true,
+  "seeds": "seeds",
+  "timeout_seconds": 3,
+  "reject_exit_codes": [
+    3,
+    4,
+    5
+  ]
+}

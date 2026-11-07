@@ -1,0 +1,9 @@
+{
+  "kind": "crash",
+  "code": 3221226505,
+  "stdout": "",
+  "stderr": "Assertion failed: end > loc.start, file src/locfile.c, line 82\r\n",
+  "signature": "assert: end > loc.start, file src/locfile.c, line 82",
+  "coverage": [],
+  "elapsed_ms": 156
+}
