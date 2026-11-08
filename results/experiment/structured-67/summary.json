@@ -1,0 +1,35 @@
+{
+  "platform_version": "1.1",
+  "version": "jq 1.8.0",
+  "target_sha256": "b45fcbb27dcb9e9848ac39889a8bf86457b8d9d31e7c56387c6eab80008fd1f4",
+  "mode": "jq-script",
+  "strategy": "structured",
+  "seed": 67,
+  "executions": 1000,
+  "outcomes": {
+    "ok": 234,
+    "rejected": 531,
+    "crash": 234,
+    "timeout": 1
+  },
+  "coverage_edges": null,
+  "elapsed_seconds": 81.39,
+  "seconds_to_first_crash": 0.59,
+  "started_at": "2026-11-08T12:18:35+0800",
+  "environment": {
+    "python": "3.13.14",
+    "platform": "Windows-11-10.0.26200-SP0"
+  },
+  "bugs": [
+    {
+      "signature": "assert: end > loc.start, file src/locfile.c, line 82",
+      "found_at": 9,
+      "id": 1
+    },
+    {
+      "signature": "Windows exception 0xC0000409",
+      "found_at": 156,
+      "id": 2
+    }
+  ]
+}

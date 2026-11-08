@@ -9,6 +9,7 @@
   "mode": "jq-script",
   "seeds": "../jq-1.8.0/seeds",
   "timeout_seconds": 5,
+  "address_sanitizer": true,
   "reject_exit_codes": [
     3,
     5

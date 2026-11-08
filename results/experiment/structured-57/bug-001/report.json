@@ -1,0 +1,28 @@
+{
+  "id": 1,
+  "target_version": "jq 1.8.0",
+  "found_at": 9,
+  "original_bytes": 76,
+  "minimized_bytes": 2,
+  "minimizer_executions": 43,
+  "original": {
+    "kind": "crash",
+    "code": 3221226505,
+    "stdout": "",
+    "stderr": "Assertion failed: end > loc.start, file src/locfile.c, line 82\r\n",
+    "signature": "assert: end > loc.start, file src/locfile.c, line 82",
+    "coverage": [],
+    "elapsed_ms": 121
+  },
+  "confirmation": {
+    "kind": "crash",
+    "code": 3221226505,
+    "stdout": "",
+    "stderr": "Assertion failed: end > loc.start, file src/locfile.c, line 82\r\n",
+    "signature": "assert: end > loc.start, file src/locfile.c, line 82",
+    "coverage": [],
+    "elapsed_ms": 110
+  },
+  "input_file": "minimized.jq",
+  "replay": "python code/fuzz.py replay <target-dir> <path-to-minimized-input>"
+}

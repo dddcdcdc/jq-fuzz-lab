@@ -1,0 +1,7 @@
+{
+  "old": "jq 1.8.0",
+  "new": "jq 1.8.1",
+  "shared_cases": 257,
+  "differences": 0,
+  "cases": []
+}

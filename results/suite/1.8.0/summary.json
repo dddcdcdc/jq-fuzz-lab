@@ -1,0 +1,42 @@
+{
+  "platform_version": "1.1",
+  "version": "jq 1.8.0",
+  "target_sha256": "b45fcbb27dcb9e9848ac39889a8bf86457b8d9d31e7c56387c6eab80008fd1f4",
+  "binary": "targets/jq-1.8.0/jq",
+  "started_at": "2026-11-08T12:35:40+0800",
+  "elapsed_seconds": 10.61,
+  "environment": {
+    "python": "3.13.14",
+    "platform": "Windows-11-10.0.26200-SP0"
+  },
+  "cases": 263,
+  "passed": 263,
+  "failed": 0,
+  "by_category": {
+    "boundary": {
+      "total": 34,
+      "passed": 34
+    },
+    "error": {
+      "total": 26,
+      "passed": 26
+    },
+    "normal": {
+      "total": 85,
+      "passed": 85
+    },
+    "params": {
+      "total": 24,
+      "passed": 24
+    },
+    "property": {
+      "total": 88,
+      "passed": 88
+    },
+    "regression": {
+      "total": 6,
+      "passed": 6
+    }
+  },
+  "failures": []
+}

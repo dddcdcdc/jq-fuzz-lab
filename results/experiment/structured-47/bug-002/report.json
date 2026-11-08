@@ -1,0 +1,28 @@
+{
+  "id": 2,
+  "target_version": "jq 1.8.0",
+  "found_at": 753,
+  "original_bytes": 73,
+  "minimized_bytes": 60,
+  "minimizer_executions": 100,
+  "original": {
+    "kind": "crash",
+    "code": 3221226505,
+    "stdout": "",
+    "stderr": "jq: error: cannot allocate memory\r\n",
+    "signature": "Windows exception 0xC0000409",
+    "coverage": [],
+    "elapsed_ms": 1617
+  },
+  "confirmation": {
+    "kind": "crash",
+    "code": 3221226505,
+    "stdout": "",
+    "stderr": "jq: error: cannot allocate memory\r\n",
+    "signature": "Windows exception 0xC0000409",
+    "coverage": [],
+    "elapsed_ms": 1533
+  },
+  "input_file": "minimized.jq",
+  "replay": "python code/fuzz.py replay <target-dir> <path-to-minimized-input>"
+}

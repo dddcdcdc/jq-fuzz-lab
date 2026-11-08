@@ -1,16 +1,25 @@
 {
+  "platform_version": "1.1",
   "version": "jq 1.8.0",
+  "target_sha256": "b45fcbb27dcb9e9848ac39889a8bf86457b8d9d31e7c56387c6eab80008fd1f4",
   "mode": "jq-script",
   "strategy": "structured",
   "seed": 7,
-  "executions": 100,
+  "executions": 1000,
   "outcomes": {
-    "ok": 28,
-    "crash": 27,
-    "rejected": 45
+    "ok": 230,
+    "crash": 235,
+    "rejected": 534,
+    "timeout": 1
   },
   "coverage_edges": null,
-  "elapsed_seconds": 9.25,
+  "elapsed_seconds": 72.37,
+  "seconds_to_first_crash": 0.51,
+  "started_at": "2026-11-08T12:07:41+0800",
+  "environment": {
+    "python": "3.13.14",
+    "platform": "Windows-11-10.0.26200-SP0"
+  },
   "bugs": [
     {
       "signature": "assert: end > loc.start, file src/locfile.c, line 82",

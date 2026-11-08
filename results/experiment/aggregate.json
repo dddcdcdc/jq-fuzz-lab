@@ -1,0 +1,37 @@
+{
+  "budget": 1000,
+  "seeds": [
+    7,
+    17,
+    37,
+    47,
+    57,
+    67,
+    77,
+    87,
+    97,
+    107
+  ],
+  "strategies": {
+    "bytes": {
+      "runs": 10,
+      "runs_with_crash": 10,
+      "first_case_mean": 46.5,
+      "first_case_median": 32.5,
+      "first_case_min": 17,
+      "first_case_max": 147,
+      "crash_runs_total": 216,
+      "seconds_mean": 51.53
+    },
+    "structured": {
+      "runs": 10,
+      "runs_with_crash": 10,
+      "first_case_mean": 8.6,
+      "first_case_median": 8.5,
+      "first_case_min": 6,
+      "first_case_max": 12,
+      "crash_runs_total": 2390,
+      "seconds_mean": 73.95
+    }
+  }
+}

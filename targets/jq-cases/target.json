@@ -1,0 +1,14 @@
+{
+  "version": "jq 1.8.0",
+  "command": [
+    "{target}/../jq-1.8.0/jq"
+  ],
+  "mode": "json",
+  "stdin": true,
+  "timeout_seconds": 10,
+  "reject_exit_codes": [
+    3,
+    4,
+    5
+  ]
+}

@@ -4,12 +4,13 @@ from collections import Counter
 from dataclasses import asdict
 import json
 from pathlib import Path
+import platform
 import random
 import sys
 import time
 
 from mutate import cases
-from runner import Target
+from runner import PLATFORM_VERSION, Target
 
 
 def write_json(path, data):
@@ -84,6 +85,7 @@ def fuzz(args, target):
     started = time.monotonic()
     coverage, findings = set(), {}
     results = Counter()
+    first_crash = None
     print(f"[run] {target.version} | {target.mode} | {args.strategy} | "
           f"seed={args.seed} | budget={args.budget}", flush=True)
     generated = cases(pool, target.mode, args.strategy, random.Random(args.seed))
@@ -102,6 +104,8 @@ def fuzz(args, target):
             confirmation = target.run(data)
             if confirmation.kind == "crash" and confirmation.signature == result.signature:
                 number = len(findings) + 1
+                if first_crash is None:
+                    first_crash = round(time.monotonic() - started, 2)
                 print(f"[crash #{number}] case {iteration}: {result.signature}", flush=True)
                 findings[result.signature] = report(target, out / f"bug-{number:03}", number,
                                                     data, result, iteration)
@@ -109,10 +113,15 @@ def fuzz(args, target):
             print(f"[progress] {iteration}/{args.budget} | crash runs={results['crash']} | "
                   f"unique={len(findings)} | edges={len(coverage)}", flush=True)
     summary = {
-        "version": target.version, "mode": target.mode, "strategy": args.strategy,
+        "platform_version": PLATFORM_VERSION,
+        "version": target.version, "target_sha256": target.sha256,
+        "mode": target.mode, "strategy": args.strategy,
         "seed": args.seed, "executions": args.budget, "outcomes": dict(results),
         "coverage_edges": len(coverage) if coverage else None,
         "elapsed_seconds": round(time.monotonic() - started, 2),
+        "seconds_to_first_crash": first_crash,
+        "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "environment": {"python": platform.python_version(), "platform": platform.platform()},
         "bugs": [{"signature": signature, "found_at": info["found_at"], "id": info["id"]}
                  for signature, info in findings.items()],
     }

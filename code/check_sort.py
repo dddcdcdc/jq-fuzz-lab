@@ -2,8 +2,9 @@
 import argparse
 import json
 from pathlib import Path
+import platform
 import random
-from runner import Target
+from runner import PLATFORM_VERSION, Target
 
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -34,8 +35,10 @@ for values in arrays:
         continue
     if actual != sorted(values) or repeated != actual:
         violations.append({"input": values, "actual": actual, "repeated": repeated})
-report = {"version": target.version, "seed": args.seed, "cases": len(arrays),
-          "passed": len(arrays) - len(violations), "violations": violations}
+report = {"platform_version": PLATFORM_VERSION, "version": target.version,
+          "target_sha256": target.sha256, "seed": args.seed, "cases": len(arrays),
+          "passed": len(arrays) - len(violations), "violations": violations,
+          "environment": {"python": platform.python_version(), "platform": platform.platform()}}
 Path(args.out).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 print(f"Sort property checks: {report['passed']}/{report['cases']}")
 raise SystemExit(bool(violations))

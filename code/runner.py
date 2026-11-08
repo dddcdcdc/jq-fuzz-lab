@@ -1,17 +1,20 @@
 """Run one manifest-defined CLI input in a fresh directory."""
 from dataclasses import dataclass
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 import time
 
-ASSERTION = re.compile(r"Assertion failed:\s*(.+)", re.IGNORECASE)
-SANITIZER = re.compile(r"(?:ERROR|SUMMARY): (AddressSanitizer|UndefinedBehaviorSanitizer): ([^\r\n]+)")
+ASSERTION = re.compile(r"^Assertion failed:[ \t]*(.+)", re.MULTILINE | re.IGNORECASE)
+SANITIZER = re.compile(r"^(?:==\d+==)?ERROR: (AddressSanitizer): ([^\r\n]+)", re.MULTILINE)
 WINDOWS_CRASHES = {0xC0000005, 0xC000001D, 0xC0000094, 0xC00000FD,
                    0xC0000409, 0x40000015, 0x80000003}
+PLATFORM_VERSION = "1.1"
 
 
 @dataclass
@@ -23,6 +26,11 @@ class Result:
     signature: str = ""
     coverage: frozenset = frozenset()
     elapsed_ms: int = 0
+
+
+def executable(path):
+    """Resolve a manifest path the way the operating system would."""
+    return shutil.which(str(path)) or str(path)
 
 
 class Target:
@@ -38,27 +46,42 @@ class Target:
         if not 0 < self.timeout <= 120:
             raise ValueError("timeout_seconds must be greater than 0 and at most 120")
         self.reject = set(self.config.get("reject_exit_codes", []))
+        self.address_sanitizer = self.config.get("address_sanitizer", False) is True
         self.mode = self.config.get("mode", "bytes")
         if self.mode not in {"bytes", "jq-script", "json"}:
             raise ValueError(f"unknown input mode: {self.mode}")
         self.extension = {"bytes": ".bin", "jq-script": ".jq", "json": ".json"}[self.mode]
         self.seeds = self.directory / self.config.get("seeds", "seeds")
         self.version = self.config.get("version", "unspecified")
+        executable_path = executable(self.command[0].replace("{target}", str(self.directory)))
+        try:
+            self.sha256 = hashlib.sha256(Path(executable_path).read_bytes()).hexdigest()
+        except OSError:
+            self.sha256 = None
         if os.name == "nt":
             import ctypes
             # Prevent child crash dialogs from interrupting unattended runs.
             kernel = ctypes.windll.kernel32
             kernel.SetErrorMode(kernel.GetErrorMode() | 0x0001 | 0x0002 | 0x8000)
 
-    def run(self, data):
+    def use_binary(self, path):
+        """Run the manifest's cases with a different build of the same program."""
+        self.command = [str(Path(executable(path)).resolve())]
+        self.sha256 = hashlib.sha256(Path(self.command[0]).read_bytes()).hexdigest()
+
+    def run(self, data, args=(), files=None):
         start = time.monotonic()
         with tempfile.TemporaryDirectory(prefix="jq-fuzz-") as work:
             work = Path(work)
             sample = work / ("input" + self.extension)
             sample.write_bytes(data)
+            for name, content in (files or {}).items():
+                if isinstance(content, str):
+                    content = content.encode("utf-8")
+                (work / name).write_bytes(content)
             trace = work / "edges.txt"
             argv = [arg.replace("{target}", str(self.directory)).replace("{input}", str(sample))
-                    for arg in self.command]
+                    for arg in self.command] + list(args)
             stdin = data if self.config.get("stdin", False) else b""
             env = dict(os.environ, FUZZ_COVERAGE_FILE=str(trace))
             kwargs = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
@@ -72,7 +95,8 @@ class Target:
                     result = Result("launch_error", None, "", str(exc))
                 else:
                     stdout, stderr = read_output(out), read_output(err)
-                    kind, signature = classify(proc.returncode, stderr, self.reject)
+                    kind, signature = classify(proc.returncode, stderr, self.reject,
+                                               address_sanitizer=self.address_sanitizer)
                     result = Result(kind, proc.returncode, stdout, stderr, signature)
             if trace.exists():
                 result.coverage = frozenset(trace.read_text(encoding="ascii").split())
@@ -87,24 +111,24 @@ def read_output(stream):
     return text + ("\n[output truncated]" if len(data) > 65536 else "")
 
 
-def classify(code, stderr, reject, windows=None):
+def classify(code, stderr, reject, windows=None, *, address_sanitizer=False):
     if code == 0:
         return "ok", ""
-    match = SANITIZER.search(stderr)
+    windows = os.name == "nt" if windows is None else windows
+    status = code & 0xFFFFFFFF
+    native_failure = status in WINDOWS_CRASHES if windows else code in {-4, -5, -6, -7, -8, -11}
+    match = SANITIZER.search(stderr) if address_sanitizer and (native_failure or code == 1) else None
     if match:
         detail = match[2].split(" on address", 1)[0].split(" at ", 1)[0]
         frame = next((line.split(" in ", 1)[1].strip() for line in stderr.splitlines()
                       if re.match(r"\s*#\d+\s+", line) and " in " in line
                       and "jq" in line.lower()), "")
         return "crash", f"{match[1]}: {detail}" + (f" | {frame}" if frame else "")
-    match = ASSERTION.search(stderr)
-    if match:
-        return "crash", "assert: " + match[1].strip()
-    windows = os.name == "nt" if windows is None else windows
-    if windows and (code & 0xFFFFFFFF) in WINDOWS_CRASHES:
-        return "crash", f"Windows exception 0x{code & 0xFFFFFFFF:08X}"
-    if not windows and code in {-4, -5, -6, -7, -8, -11}:
-        return "crash", f"POSIX signal {-code}"
+    if native_failure:
+        match = ASSERTION.search(stderr)
+        if match:
+            return "crash", "assert: " + match[1].strip()
+        return "crash", f"Windows exception 0x{status:08X}" if windows else f"POSIX signal {-code}"
     if code in reject:
         return "rejected", ""
     return "exit_error", ""

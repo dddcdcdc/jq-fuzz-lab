@@ -1,0 +1,1 @@
+Assertion failed: end > loc.start, file src/locfile.c, line 82
