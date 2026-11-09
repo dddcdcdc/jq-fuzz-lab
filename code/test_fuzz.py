@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 from pathlib import Path
 import random
@@ -201,7 +203,8 @@ class CompareTests(unittest.TestCase):
         old = self.write_run("old", "jq 1.8.0", [self.record("a"), self.record("b")])
         new = self.write_run("new", "jq 1.8.0", [self.record("a")])
         out = self.root / "comparison.json"
-        status = compare(SimpleNamespace(old=str(old), new=str(new), out=str(out)))
+        with contextlib.redirect_stdout(io.StringIO()):
+            status = compare(SimpleNamespace(old=str(old), new=str(new), out=str(out)))
         result = json.loads(out.read_text(encoding="utf-8"))
         self.assertEqual(status, 1)
         self.assertFalse(result["complete"])
@@ -212,7 +215,8 @@ class CompareTests(unittest.TestCase):
                              [self.record("a"), self.record("b", ["jq 1.8.0"])])
         new = self.write_run("new", "jq 1.8.1", [self.record("a")])
         out = self.root / "comparison.json"
-        status = compare(SimpleNamespace(old=str(old), new=str(new), out=str(out)))
+        with contextlib.redirect_stdout(io.StringIO()):
+            status = compare(SimpleNamespace(old=str(old), new=str(new), out=str(out)))
         result = json.loads(out.read_text(encoding="utf-8"))
         self.assertEqual(status, 0)
         self.assertTrue(result["complete"])
