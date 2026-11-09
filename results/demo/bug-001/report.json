@@ -14,7 +14,7 @@
     "stderr": "Assertion failed: end > loc.start, file src/locfile.c, line 82\r\n",
     "signature": "assert: end > loc.start, file src/locfile.c, line 82",
     "coverage": [],
-    "elapsed_ms": 111
+    "elapsed_ms": 106
   },
   "confirmation": {
     "kind": "crash",
@@ -23,7 +23,7 @@
     "stderr": "Assertion failed: end > loc.start, file src/locfile.c, line 82\r\n",
     "signature": "assert: end > loc.start, file src/locfile.c, line 82",
     "coverage": [],
-    "elapsed_ms": 107
+    "elapsed_ms": 103
   },
   "input_file": "minimized.jq",
   "replay": "python code/fuzz.py replay <target-dir> <path-to-minimized-input>"
