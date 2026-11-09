@@ -50,12 +50,16 @@ def report(target, out, number, data, result, iteration):
     minimized = out / ("minimized" + target.extension)
     minimized.write_bytes(reduced)
     confirmation = target.run(reduced)
-    if confirmation.kind != "crash" or confirmation.signature != result.signature:
+    confirmed = confirmation.kind == "crash" and confirmation.signature == result.signature
+    if not confirmed:
         reduced = data
         minimized.write_bytes(data)
         confirmation = target.run(data)
+        confirmed = confirmation.kind == "crash" and confirmation.signature == result.signature
     metadata = {
         "id": number, "target_version": target.version, "found_at": iteration,
+        "status": "confirmed" if confirmed else "unstable",
+        "confirmed": confirmed,
         "original_bytes": len(data), "minimized_bytes": len(reduced),
         "minimizer_executions": attempts, "original": result_json(result),
         "confirmation": result_json(confirmation),
@@ -64,7 +68,10 @@ def report(target, out, number, data, result, iteration):
     }
     write_json(out / "report.json", metadata)
     (out / "stderr.txt").write_text(result.stderr, encoding="utf-8", newline="")
-    print(f"  [shrink] {len(data)} -> {len(reduced)} bytes ({attempts} trials)", flush=True)
+    if confirmed:
+        print(f"  [shrink] {len(data)} -> {len(reduced)} bytes ({attempts} trials)", flush=True)
+    else:
+        print("  [unstable] final confirmation did not reproduce the crash", flush=True)
     return metadata
 
 
@@ -80,15 +87,15 @@ def fuzz(args, target):
         raise ValueError("guided mode requires an instrumented target with edge coverage")
     if args.budget < len(pool):
         raise ValueError("budget must cover the initial corpus")
+    generated = cases(pool, target.mode, args.strategy, random.Random(args.seed))
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=False)
     started = time.monotonic()
-    coverage, findings = set(), {}
+    coverage, findings, unstable = set(), {}, {}
     results = Counter()
     first_crash = None
     print(f"[run] {target.version} | {target.mode} | {args.strategy} | "
           f"seed={args.seed} | budget={args.budget}", flush=True)
-    generated = cases(pool, target.mode, args.strategy, random.Random(args.seed))
     for iteration in range(1, args.budget + 1):
         data = next(generated)
         result = target.run(data)
@@ -100,15 +107,27 @@ def fuzz(args, target):
         if args.strategy == "guided" and new_edges and result.kind in {"ok", "rejected"}:
             if data not in pool:
                 pool.append(data)
-        if result.kind == "crash" and result.signature not in findings:
+        if (result.kind == "crash" and result.signature not in findings
+                and result.signature not in unstable):
             confirmation = target.run(data)
-            if confirmation.kind == "crash" and confirmation.signature == result.signature:
+            if confirmation.kind != "crash" or confirmation.signature != result.signature:
+                unstable[result.signature] = {"found_at": iteration}
+                print(f"[unstable] case {iteration}: {result.signature} "
+                      f"(not reproducible)", flush=True)
+            else:
                 number = len(findings) + 1
-                if first_crash is None:
-                    first_crash = round(time.monotonic() - started, 2)
-                print(f"[crash #{number}] case {iteration}: {result.signature}", flush=True)
-                findings[result.signature] = report(target, out / f"bug-{number:03}", number,
-                                                    data, result, iteration)
+                directory = out / f"bug-{number:03}"
+                found_after = round(time.monotonic() - started, 2)
+                info = report(target, directory, number, data, result, iteration)
+                if info["confirmed"]:
+                    if first_crash is None:
+                        first_crash = found_after
+                    print(f"[crash #{number}] case {iteration}: {result.signature}", flush=True)
+                    findings[result.signature] = info
+                else:
+                    name = f"unstable-{len(unstable) + 1:03}"
+                    unstable[result.signature] = {"found_at": iteration, "report": name}
+                    directory.rename(out / name)
         if iteration % 25 == 0 or iteration == args.budget:
             print(f"[progress] {iteration}/{args.budget} | crash runs={results['crash']} | "
                   f"unique={len(findings)} | edges={len(coverage)}", flush=True)
@@ -124,9 +143,15 @@ def fuzz(args, target):
         "environment": {"python": platform.python_version(), "platform": platform.platform()},
         "bugs": [{"signature": signature, "found_at": info["found_at"], "id": info["id"]}
                  for signature, info in findings.items()],
+        "unconfirmed": [{"signature": signature, "found_at": info["found_at"],
+                         "report": info.get("report")}
+                        for signature, info in unstable.items()],
     }
     write_json(out / "summary.json", summary)
-    print(f"[done] {len(findings)} reproducible bug(s); summary: {out / 'summary.json'}", flush=True)
+    detail = f"{len(findings)} reproducible bug(s)"
+    if unstable:
+        detail += f", {len(unstable)} unconfirmed"
+    print(f"[done] {detail}; summary: {out / 'summary.json'}", flush=True)
     return 0
 
 

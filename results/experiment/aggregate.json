@@ -21,6 +21,7 @@
       "first_case_min": 17,
       "first_case_max": 147,
       "crash_runs_total": 216,
+      "crash_runs_median": 21.5,
       "seconds_mean": 51.53
     },
     "structured": {
@@ -31,6 +32,7 @@
       "first_case_min": 6,
       "first_case_max": 12,
       "crash_runs_total": 2390,
+      "crash_runs_median": 237.5,
       "seconds_mean": 73.95
     }
   }

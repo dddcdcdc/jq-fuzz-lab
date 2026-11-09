@@ -1,7 +1,64 @@
 {
   "old": "jq 1.8.0",
   "new": "jq 1.8.1",
+  "cases_run": {
+    "old": 263,
+    "new": 263
+  },
   "shared_cases": 257,
   "differences": 0,
-  "cases": []
+  "cases": [],
+  "missing_from_new": [],
+  "added_in_new": [],
+  "version_specific": [
+    {
+      "id": "regression.truncated-(.1.8.0",
+      "only_in": "old"
+    },
+    {
+      "id": "regression.truncated-access.1.8.0",
+      "only_in": "old"
+    },
+    {
+      "id": "regression.truncated-binding.1.8.0",
+      "only_in": "old"
+    },
+    {
+      "id": "regression.truncated-bracket.1.8.0",
+      "only_in": "old"
+    },
+    {
+      "id": "regression.truncated-if.1.8.0",
+      "only_in": "old"
+    },
+    {
+      "id": "regression.truncated-object.1.8.0",
+      "only_in": "old"
+    },
+    {
+      "id": "regression.truncated-(.1.8.1",
+      "only_in": "new"
+    },
+    {
+      "id": "regression.truncated-access.1.8.1",
+      "only_in": "new"
+    },
+    {
+      "id": "regression.truncated-binding.1.8.1",
+      "only_in": "new"
+    },
+    {
+      "id": "regression.truncated-bracket.1.8.1",
+      "only_in": "new"
+    },
+    {
+      "id": "regression.truncated-if.1.8.1",
+      "only_in": "new"
+    },
+    {
+      "id": "regression.truncated-object.1.8.1",
+      "only_in": "new"
+    }
+  ],
+  "complete": true
 }

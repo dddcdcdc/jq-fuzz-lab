@@ -1,13 +1,18 @@
 import json
 from pathlib import Path
 import random
+import subprocess
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest import mock
 
+import mutate
 from fuzz import minimize
-from mutate import cases
+from mutate import MAX_INPUT, cases
 from runner import Result, Target, classify
+from suite import compare
 
 
 def make_target(test, command, **config):
@@ -111,6 +116,107 @@ class RunnerTests(unittest.TestCase):
         target = make_target(self, [sys.executable, "-c", "import sys; print(len(sys.stdin.read()))"],
                              stdin=True)
         self.assertEqual(target.run(b"abcde").stdout.strip(), "5")
+
+
+class MutationTests(unittest.TestCase):
+    def test_oversized_seed_is_rejected_before_any_run(self):
+        with self.assertRaises(ValueError):
+            cases([b"x" * (MAX_INPUT + 1)], "bytes", "bytes", random.Random(1))
+
+    def test_seed_at_limit_is_accepted(self):
+        generator = cases([b"x" * MAX_INPUT], "bytes", "bytes", random.Random(1))
+        self.assertEqual(len(next(generator)), MAX_INPUT)
+        for _ in range(30):
+            self.assertLessEqual(len(next(generator)), MAX_INPUT)
+
+    def test_generation_stops_after_repeated_oversized_mutations(self):
+        oversized = b"x" * (MAX_INPUT + 1)
+        with mock.patch.object(mutate, "byte_mutation", return_value=oversized):
+            generator = cases([b"seed"], "bytes", "bytes", random.Random(1))
+            next(generator)
+            with self.assertRaises(ValueError):
+                next(generator)
+
+
+class ConfirmationTests(unittest.TestCase):
+    def test_flaky_crash_is_reported_as_unconfirmed(self):
+        workspace = tempfile.TemporaryDirectory()
+        self.addCleanup(workspace.cleanup)
+        target = Path(workspace.name) / "target"
+        (target / "seeds").mkdir(parents=True)
+        (target / "seeds" / "seed.bin").write_bytes(b"payload")
+        script = target / "flaky.py"
+        script.write_text(
+            "import os, pathlib, sys\n"
+            "counter = pathlib.Path(__file__).with_name('count')\n"
+            "n = int(counter.read_text()) if counter.exists() else 0\n"
+            "counter.write_text(str(n + 1))\n"
+            "if n in (1, 2):\n"
+            "    os.abort()\n"
+            "sys.exit(0)\n", encoding="utf-8")
+        (target / "target.json").write_text(json.dumps({
+            "version": "flaky", "command": [sys.executable, str(script)],
+            "mode": "bytes", "seeds": "seeds", "timeout_seconds": 10,
+        }), encoding="utf-8")
+        out = Path(workspace.name) / "out"
+        cli = Path(__file__).with_name("fuzz.py")
+        proc = subprocess.run([sys.executable, str(cli), "run", str(target),
+                               "--strategy", "bytes", "--budget", "3", "--out", str(out)],
+                              capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        summary = json.loads((out / "summary.json").read_text(encoding="utf-8"))
+        self.assertEqual(summary["bugs"], [])
+        self.assertEqual(len(summary["unconfirmed"]), 1)
+        self.assertIsNone(summary["seconds_to_first_crash"])
+        self.assertFalse((out / "bug-001").exists())
+        report = json.loads((out / "unstable-001" / "report.json").read_text(encoding="utf-8"))
+        self.assertFalse(report["confirmed"])
+        self.assertEqual(report["status"], "unstable")
+
+
+class CompareTests(unittest.TestCase):
+    def setUp(self):
+        self.workspace = tempfile.TemporaryDirectory()
+        self.addCleanup(self.workspace.cleanup)
+        self.root = Path(self.workspace.name)
+
+    def write_run(self, name, version, records):
+        path = self.root / name
+        path.mkdir()
+        (path / "summary.json").write_text(json.dumps({"version": version}), encoding="utf-8")
+        with (path / "cases.jsonl").open("w", encoding="utf-8", newline="\n") as handle:
+            for record in records:
+                handle.write(json.dumps(record) + "\n")
+        return path
+
+    @staticmethod
+    def record(key, versions=None):
+        record = {"id": key, "category": "normal",
+                  "actual": {"kind": "ok", "exit": 0, "stdout": "x"}}
+        if versions:
+            record["versions"] = versions
+        return record
+
+    def test_missing_case_fails_the_comparison(self):
+        old = self.write_run("old", "jq 1.8.0", [self.record("a"), self.record("b")])
+        new = self.write_run("new", "jq 1.8.0", [self.record("a")])
+        out = self.root / "comparison.json"
+        status = compare(SimpleNamespace(old=str(old), new=str(new), out=str(out)))
+        result = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(status, 1)
+        self.assertFalse(result["complete"])
+        self.assertEqual(result["missing_from_new"], ["b"])
+
+    def test_version_specific_case_is_not_treated_as_missing(self):
+        old = self.write_run("old", "jq 1.8.0",
+                             [self.record("a"), self.record("b", ["jq 1.8.0"])])
+        new = self.write_run("new", "jq 1.8.1", [self.record("a")])
+        out = self.root / "comparison.json"
+        status = compare(SimpleNamespace(old=str(old), new=str(new), out=str(out)))
+        result = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(status, 0)
+        self.assertTrue(result["complete"])
+        self.assertEqual(result["version_specific"], [{"id": "b", "only_in": "old"}])
 
 
 if __name__ == "__main__":

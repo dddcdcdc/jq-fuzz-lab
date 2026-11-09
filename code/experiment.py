@@ -56,6 +56,7 @@ for strategy in strategies:
         "first_case_min": min(firsts) if firsts else None,
         "first_case_max": max(firsts) if firsts else None,
         "crash_runs_total": sum(row["crash_runs"] for row in group),
+        "crash_runs_median": statistics.median(row["crash_runs"] for row in group),
         "seconds_mean": round(statistics.mean(row["elapsed_seconds"] for row in group), 2),
     }
 (out / "aggregate.json").write_text(json.dumps({

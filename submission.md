@@ -13,8 +13,8 @@
 ## 材料说明
 
 - `readme.md`：安装、运行、用例套件、对照实验、接入其他程序的步骤。
-- `code/`：平台本体（`fuzz.py`、`runner.py`、`mutate.py`）、确定性用例套件（`suite.py`、`build_cases.py`）、实验脚本（`experiment.py`、`check_sort.py`）与 17 项自检（`test_fuzz.py`）。
-- `video/demo.mp4`：桌面实际屏幕录像，展示自检、263 条用例在两版上的结果、一次模糊测试发现崩溃、反例缩减与两版重放。
+- `code/`：平台本体（`fuzz.py`、`runner.py`、`mutate.py`）、确定性用例套件（`suite.py`、`build_cases.py`）、实验脚本（`experiment.py`、`check_sort.py`）与 23 项自检（`test_fuzz.py`）。
+- `video/demo.mp4`：桌面实际屏幕录像，展示自检、269 条用例库（每版 263 条）在两版上的结果、一次模糊测试发现崩溃、反例缩减与两版重放。
 - `prompt/conversation.md`：从选题到最终交付的完整对话；`prompt/development-log.md`：可复核的调试记录，含失败现象与修正。
 - `results/`：逐例用例记录、缺陷报告与反例、对照实验原始数据、实验报告。
 

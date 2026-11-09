@@ -114,26 +114,51 @@ def compare(args):
     new_summary = json.loads((new_dir / "summary.json").read_text(encoding="utf-8"))
     old_cases = load_cases(old_dir / "cases.jsonl")
     new_cases = load_cases(new_dir / "cases.jsonl")
+    old_ids, new_ids = set(old_cases), set(new_cases)
+    shared = sorted(old_ids & new_ids)
     differences = []
-    for key in sorted(set(old_cases) & set(new_cases)):
+    for key in shared:
         before, after = old_cases[key]["actual"], new_cases[key]["actual"]
         changed = {field: {"from": before[field], "to": after[field]}
                    for field in ("kind", "exit", "stdout") if before[field] != after[field]}
         if changed:
             differences.append({"id": key, "category": old_cases[key]["category"],
                                 "difference": changed})
+    version_specific, missing, added = [], [], []
+    for key in sorted(old_ids - new_ids):
+        record = old_cases[key]
+        if record.get("versions") and new_summary["version"] not in record["versions"]:
+            version_specific.append({"id": key, "only_in": "old"})
+        else:
+            missing.append(key)
+    for key in sorted(new_ids - old_ids):
+        record = new_cases[key]
+        if record.get("versions") and old_summary["version"] not in record["versions"]:
+            version_specific.append({"id": key, "only_in": "new"})
+        else:
+            added.append(key)
     result = {
         "old": old_summary["version"], "new": new_summary["version"],
-        "shared_cases": len(set(old_cases) & set(new_cases)),
+        "cases_run": {"old": len(old_ids), "new": len(new_ids)},
+        "shared_cases": len(shared),
         "differences": len(differences), "cases": differences,
+        "missing_from_new": missing, "added_in_new": added,
+        "version_specific": version_specific,
+        "complete": not missing and not added,
     }
     Path(args.out).write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n",
                               encoding="utf-8")
     print(f"[compare] {result['old']} vs {result['new']}: "
-          f"{result['differences']} difference(s) in {result['shared_cases']} shared cases")
+          f"{result['differences']} difference(s) in {result['shared_cases']} shared cases; "
+          f"missing {len(missing)}, added {len(added)}, "
+          f"version-specific {len(version_specific)}")
     for item in differences:
-        print(f"  {item['id']}: {item['difference']}")
-    return 0 if not differences else 1
+        print(f"  [diff] {item['id']}: {item['difference']}")
+    for key in missing:
+        print(f"  [missing] {key}: present in old run only")
+    for key in added:
+        print(f"  [added] {key}: present in new run only")
+    return 0 if not differences and result["complete"] else 1
 
 
 def load_cases(path):

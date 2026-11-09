@@ -21,7 +21,7 @@ python code/fuzz.py replay targets/jq-1.8.1 runs/demo/bug-001/minimized.jq
 
 ## 确定性用例套件
 
-`targets/jq-cases/cases.jsonl` 保存 263 条用例，逐条给出参数、标准输入、预期退出码与预期输出。`code/suite.py` 用与模糊测试相同的运行器逐例执行并逐例落盘，便于检查“测了什么、为什么判为通过”。
+用例库 `targets/jq-cases/cases.jsonl` 共 269 条，每版执行 263 条，逐条给出参数、标准输入、预期退出码与预期输出。`code/suite.py` 用与模糊测试相同的运行器逐例执行并逐例落盘，便于检查“测了什么、为什么判为通过”。
 
 ```sh
 python code/build_cases.py                     # 重新生成用例文件（确定性）
@@ -39,7 +39,7 @@ python code/suite.py compare results/suite/1.8.0 results/suite/1.8.1 --out resul
 | params | 24 | 紧凑/展开/制表符/缩进、原始输出、`-j`、`-s`、`-n`、`--arg`、`--argjson`、`-e`、`-S`、`-a`、`--raw-input`、多文件 |
 | regression | 12 | 旧版断言崩溃与修复版正常拒绝的成对用例，按版本分别执行 |
 
-用例文件共 269 条；其中 12 条带版本标记，每次运行按目标版本执行 263 条。
+其中 12 条带版本标记，每次运行按目标版本执行 263 条。
 
 预期值由 jq 手册语义和本项目对语义的独立建模给出（属性类用例的预期由 Python 计算），不是从被测二进制回填的输出。Windows 版 jq 输出行尾为 CRLF，套件在比较前统一换行符。
 
@@ -49,7 +49,7 @@ python code/suite.py compare results/suite/1.8.0 results/suite/1.8.1 --out resul
 python -m unittest discover -s code -p "test_*.py" -v
 ```
 
-17 项检查覆盖：断言文本不得改变普通错误的分类、ASan 诊断只在声明插桩的目标上生效、真实 abort 与超时、启动失败、输出截断、中文与空格目录、附加参数与辅助文件、缩减保持签名、变异可复现。
+23 项检查覆盖：断言文本不得改变普通错误的分类、ASan 诊断只在声明插桩的目标上生效、真实 abort 与超时、启动失败、输出截断、中文与空格目录、附加参数与辅助文件、缩减保持签名、变异可复现；另含超长种子拒绝、变异重试上限、未确认崩溃不计入缺陷、版本比较报告缺失用例。
 
 ## 对照实验
 

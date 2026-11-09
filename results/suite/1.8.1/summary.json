@@ -3,8 +3,8 @@
   "version": "jq 1.8.1",
   "target_sha256": "23cb60a1354eed6bcc8d9b9735e8c7b388cd1fdcb75726b93bc299ef22dd9334",
   "binary": "targets/jq-1.8.1/jq.exe",
-  "started_at": "2026-11-08T12:35:51+0800",
-  "elapsed_seconds": 10.28,
+  "started_at": "2026-11-09T13:03:11+0800",
+  "elapsed_seconds": 8.92,
   "environment": {
     "python": "3.13.14",
     "platform": "Windows-11-10.0.26200-SP0"

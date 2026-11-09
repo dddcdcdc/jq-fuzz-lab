@@ -4,6 +4,7 @@ import re
 
 TOKEN = re.compile(rb'"(?:\\.|[^"\\])*"|[A-Za-z_][A-Za-z_0-9]*|\d+|[^\s]', re.DOTALL)
 MAX_INPUT = 8192
+MAX_MUTATION_ATTEMPTS = 100
 
 
 def byte_mutation(data, rng):
@@ -69,10 +70,31 @@ def json_mutation(data, rng):
 
 
 def cases(seeds, mode, strategy, rng):
+    """Yield the seeds, then bounded mutations of them.
+
+    Reject oversized seeds up front and cap the retries: a mutation that keeps
+    exceeding MAX_INPUT must fail loudly instead of spinning forever.
+    """
+    seeds = tuple(seeds)
+    if not seeds:
+        raise ValueError("seed corpus is empty")
+    largest = max(len(seed) for seed in seeds)
+    if largest > MAX_INPUT:
+        raise ValueError(f"seed is {largest} bytes, limit is {MAX_INPUT} bytes")
     mutator = {"jq-script": script_mutation, "json": json_mutation}.get(mode, byte_mutation)
     mutate = byte_mutation if strategy == "bytes" else mutator
-    yield from tuple(seeds)
-    while True:
-        data = mutate(rng.choice(seeds), rng)
-        if len(data) <= MAX_INPUT:
+
+    def generate():
+        yield from seeds
+        while True:
+            for _ in range(MAX_MUTATION_ATTEMPTS):
+                data = mutate(rng.choice(seeds), rng)
+                if len(data) <= MAX_INPUT:
+                    break
+            else:
+                raise ValueError(
+                    f"no candidate within {MAX_INPUT} bytes after "
+                    f"{MAX_MUTATION_ATTEMPTS} attempts")
             yield data
+
+    return generate()
